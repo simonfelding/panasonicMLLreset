@@ -8,6 +8,8 @@
 # Requires the user to be in the i2c group.
 # requires pip install smbus2
 
+# argument -t enables transistor switch.
+# argument -c uses CEC to reboot tv?
 # argument -s makes it run silent. Run without arguments first so you know if it works.
 # a number as argument skips i2c detection and uses the number as device address.
 
@@ -22,11 +24,12 @@
 # Pana 9->gpio pin 3 (SDA)
 # Pana 10->gpio pin 9 (GND)
 
-from smbus2 import SMBus
+# transistor switch can be connected at at pin 11.
+
+from smbus2 import SMBus, i2c
 from time import sleep
 from datetime import datetime
 from syslog import syslog
-
 
 # the offsets for the data we want, according to the guide at http://panasonic.mironto.sk.
 # range syntax: range(start, stop, step). Stop not included.
@@ -34,8 +37,38 @@ from syslog import syslog
 read_range=range(0,10) # why do we even need this extended range?
 write_range=range(1,7)
 
-# i2c = SMBus(1)  # Create a new I2C bus
-dev_addr = 9999 # harmless for now, in case it starts writing to a weird address i don't think I want it to be 0
+# i2c = SMBus(1)  # Create a new I2C bus. disabled because I use with statements instead.
+dev_addr = 9999 # harmless for now, in case i make an accident testing this.
+
+def cec_reset():
+	if "-c" in sys.argv[1:]:
+		import cec
+		cec.init()
+		with cec.Device(cec.CECDEVICE_TV) as tv:
+			tv.power_off()
+			while tv.is_on() == True:
+				sleep()
+			tv.power_on()
+			while tv.is_on() == False:
+				sleep()
+
+def transistor_ctrl(state):
+	import RPi.GPIO as gpio
+	gpio_pin = 17 # note: board pin 11 is BCM GPIO 17
+	if -s not in sys.argv[1:]: # for debugging
+		print("gpio mode is " + str(gpio.getmode()))
+	if gpio.getmode() != gpio.BCM: # this relies on BCM mode.
+		raise IOError("gpio BCM mode not set. exiting")
+	else:
+		if state = 1:
+			gpio.setup(gpio_pin, gpio.OUT)
+			gpio.output(gpio_pin, 1) # set gpio_pin to HIGH, enabling the switch.
+			global gpio_pin_state
+			gpio_pin_state = 1
+			sleep(1)
+		if state = "cleanup":
+			gpio.cleanup()
+
 
 def find_tv():
 	found = []
@@ -71,8 +104,8 @@ def find_tv():
 		            found.append(addr)
 
 		if len(found) > 1:
+			print("run without -s to input address manually, or modify the script")
 			if "-s" not in sys.argv[1:]:
-				print("run without -s to input address manually, or modify the script")
 				dev_addr = int(input("Enter device address (remember prefix 0x if input is hexadecimal): \n"))
 
 		elif len(found == 1):
@@ -109,8 +142,7 @@ def write_zero():
 					try:
 						i2c.write_byte(dev_addr, addr, 0)
 					except:
-						print("failed again at pos: " + addr + " :(")
-						raise IOError
+						raise IOError("failed writing zero again at pos: " + addr + " :(")
 
 		except:
 			with open('panasonic_error.log', 'a') as f:
@@ -126,31 +158,38 @@ def write_zero():
 
 def main():
 	syslog('Attempting Panasonic MLL reset')
+	if "-t" in sys.argv[1:]:
+		transistor_ctl(1)
+	if "-c" in sys.argv[1:]:
+		cec_reset()
+
 	find_tv()
-
-	if "-s" in sys.argv[1:]:
-		 write_zero()
-		 if read_data(write_range) == int("0"*len(write_range)): # if the range is all zeroes
-			syslog("Successful Panasonic MLL reset.")
-			return(0)
-		else:
-			syslog("!!!! Failed attempted Panasonic MLL reset")
-			return(1)
-
-	else:
-		print("Panasonic MLL reset script. This zeroes out the EEPROM timer as described on http://panasonic.mironto.sk")
-		print("Reading EEPROM data:")
-		data_read = read_data(read_range)
-		print(data_read)
-		print("The length of this range is: " + len(data_read))
-		if str.lower(input("Does the data read look like decimals? Type yes to continue and write zeroes over the date only: \n")) in ["yes", "y"]:
-			write_zero()
-			if read_data(write_range) == "0"*len(write_range)):
-				print("It worked! Here's the whole thing: " + read_data(read_range))
+	try:
+		if "-s" in sys.argv[1:]: # short version of the script.
+			 write_zero()
+			if read_data(write_range) == "0"*len(write_range): # if the range is all zeroes
+				syslog("Successful Panasonic MLL reset.")
 			else:
-				print("!!!! Something is wrong. This should have a lot of zeroes: " + read_data(read_range))
-		else:
-			print("yes was not typed, terminating connection. Make sure to type yes with lower case.")
+				syslog("!!!! Failed attempted Panasonic MLL reset")
+				raise IOError
+		else: # interactive version for testing
+			print("Panasonic MLL reset script. This zeroes out the EEPROM timer as described on http://panasonic.mironto.sk")
+			print("Reading EEPROM data:")
+			data_read = read_data(read_range)
+			print(data_read)
+			print("The length of this range is: " + len(data_read))
+			if str.lower(input("Does the data read look like numbers? Type yes to continue and write zeroes over the MLL timer only: \n")) in ["yes", "y"]:
+				write_zero()
+				if read_data(write_range) == "0"*len(write_range)):
+					print("It worked! Here's the whole thing: " + read_data(read_range))
+				else:
+					print("!!!! Something is wrong. This should have a lot of zeroes: " + read_data(read_range))
+			else:
+				print("yes was not typed, terminating.")
+
+	finally:
+		if "-t" in sys.argv[1:] and gpio_pin_state==1:
+			transistor_ctl("cleanup")
 
 if __name__ == "__main__":
 	main()
