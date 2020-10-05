@@ -41,21 +41,20 @@ write_range=range(1,7)
 dev_addr = 9999 # harmless for now, in case i make an accident testing this.
 
 def cec_reset():
-	if "-c" in sys.argv[1:]:
-		import cec
-		cec.init()
-		with cec.Device(cec.CECDEVICE_TV) as tv:
-			tv.power_off()
-			print("waiting for tv to power off.", end='', flush=True)
-			while tv.is_on() == True:
-				sleep(0.2)
-				print(".", end='', flush=True)
-			print("waiting for tv to power on.", end='', flush=True)
-			tv.power_on()
-			while tv.is_on() == False:
-				sleep(0.2)
-				print(".", end='', flush=True)
-			print("\n")
+	import cec
+	cec.init()
+	with cec.Device(cec.CECDEVICE_TV) as tv:
+		tv.power_off()
+		print("waiting for tv to power off.", end='', flush=True)
+		while tv.is_on() == True:
+			sleep(0.2)
+			print(".", end='', flush=True)
+		print("waiting for tv to power on.", end='', flush=True)
+		tv.power_on()
+		while tv.is_on() == False:
+			sleep(0.2)
+			print(".", end='', flush=True)
+		print("\n")
 
 def transistor_ctrl(state):
 	import RPi.GPIO as gpio
