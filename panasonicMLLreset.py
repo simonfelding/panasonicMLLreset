@@ -93,7 +93,7 @@ def find_tv():
 	        ## devices are present at all slave addresses.
 		with SMBus(1) as i2c:
 			for addr in range(3, 120):
-		        try:
+				try:
 		            ## Taken from i2cdetect.c - Do not perform write operations on
 		            ## addresses that might contain EEPROMs to avoid corruption.
 
