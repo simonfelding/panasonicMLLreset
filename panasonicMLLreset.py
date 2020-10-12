@@ -88,24 +88,24 @@ def find_tv():
 		break
 	else:
 			## Scan valid I2C 7-bit address range, avoiding invalid addresses:
-	        ## (0-2=Different bus formats, 120-127=Reserved/10bit addresses)
-	        ## NOTE: If the SDA line is being held LOW, it will appear that
-	        ## devices are present at all slave addresses.
+			## (0-2=Different bus formats, 120-127=Reserved/10bit addresses)
+			## NOTE: If the SDA line is being held LOW, it will appear that
+			## devices are present at all slave addresses.
 		with SMBus(1) as i2c:
 			for addr in range(3, 120):
 				try:
-		            ## Taken from i2cdetect.c - Do not perform write operations on
-		            ## addresses that might contain EEPROMs to avoid corruption.
+					## Taken from i2cdetect.c - Do not perform write operations on
+					## addresses that might contain EEPROMs to avoid corruption.
 
 					if addr in range(0x30, 0x38) or addr in range(0x50, 0x60):
-		                # Do a 1-byte read to see if a device exists at address.
-		                	i2c.read_byte(dev_addr, addr)
-		        except (IOError) as e:
-		            # No ACK. Address is vacant.
-		            pass
-		        else:
-		            print(f"Transaction was ACK'd. Found a device at: {addr}")
-		            found.append(addr)
+						# Do a 1-byte read to see if a device exists at address.
+							i2c.read_byte(dev_addr, addr)
+				except (IOError) as e:
+					# No ACK. Address is vacant.
+					pass
+				else:
+					print(f"Transaction was ACK'd. Found a device at: {addr}")
+					found.append(addr)
 
 		if len(found) > 1:
 			syslog("multiple devices found. write the address as an argument to the script.")
