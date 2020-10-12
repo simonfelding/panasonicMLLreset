@@ -64,13 +64,13 @@ def transistor_ctrl(state):
 	if gpio.getmode() != gpio.BCM: # this relies on BCM mode because I assume that's necessary when working with SMBus too.
 		raise IOError("gpio BCM mode not set. exiting")
 	else:
-		if state = 1:
+		if state == 1:
 			gpio.setup(gpio_pin, gpio.OUT)
 			gpio.output(gpio_pin, 1) # set gpio_pin to HIGH, enabling the switch.
 			global gpio_pin_state
 			gpio_pin_state = 1
 			sleep(1)
-		if state = "cleanup":
+		if state == "cleanup":
 			gpio.cleanup()
 
 
