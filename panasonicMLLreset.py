@@ -24,7 +24,7 @@
 # Pana 9->gpio pin 3 (SDA)
 # Pana 10->gpio pin 9 (GND)
 
-# transistor switch can be connected at at pin 11.
+# transistor switch can be connected at at gpio pin 11.
 
 from smbus2 import SMBus, i2c
 from time import sleep
@@ -59,9 +59,9 @@ def cec_reset():
 def transistor_ctrl(state):
 	import RPi.GPIO as gpio
 	gpio_pin = 17 # note: board pin 11 is BCM GPIO 17
-	if -s not in sys.argv[1:]: # for debugging
-		print("gpio mode is " + str(gpio.getmode()))
-	if gpio.getmode() != gpio.BCM: # this relies on BCM mode.
+	if "-s" not in sys.argv[1:]: # for debugging
+		print(f"gpio mode is {gpio.getmode()}")
+	if gpio.getmode() != gpio.BCM: # this relies on BCM mode because I assume that's necessary when working with SMBus too.
 		raise IOError("gpio BCM mode not set. exiting")
 	else:
 		if state = 1:
@@ -104,17 +104,18 @@ def find_tv():
 		            # No ACK. Address is vacant.
 		            pass
 		        else:
-		            print("Transaction was ACK'd. Found a device at: "+str(addr))
+		            print(f"Transaction was ACK'd. Found a device at: {addr}")
 		            found.append(addr)
 
 		if len(found) > 1:
-			print("run without -s to input address manually, or modify the script")
+			syslog("multiple devices found. write the address as an argument to the script.")
 			if "-s" not in sys.argv[1:]:
+				print(f"Devices found at: {found}")
 				dev_addr = int(input("Enter device address (remember prefix 0x if input is hexadecimal): \n"))
 
 		elif len(found == 1):
 			dev_addr = found[0])
-			print("dev address is " + str(dev_addr))
+			print(f"dev address is {dev_addr}")
 		else:
 			if "-s" not in sys.argv[1:]:
 				print("No device found")
@@ -139,23 +140,23 @@ def write_zero():
 					i2c.write_byte(dev_addr, addr, 0)
 					if "-s" not in sys.argv[1:]:
 						status = status + 100/len(write_range)
-						print(str(status)+"% done writing zeroes to pana tv.", end='\r')
+						print(f"{status} done writing zeroes to pana tv.", end='\r')
 				except:
-					print('\n !!!! failed writing as pos: ' + str(addr))
+					print(f'\n !!!! failed writing as pos: {addr}')
 					print('trying again.')
 					try:
 						i2c.write_byte(dev_addr, addr, 0)
 					except:
-						raise IOError("failed writing zero again at pos: " + addr + " :(")
+						raise IOError(f"failed writing zero again at pos: {addr} :(")
 
 		except:
 			with open('panasonic_error.log', 'a') as f:
-				f.write(datetime.now() +": Error writing to Panasonic TV at "+str(dev_addr)+ ". Following is the backup of the whole range of data (not just the date part): " + data + "\n")
+				f.write(f"{datetime.now()}: Error writing to Panasonic TV at {dev_addr}. Following is the backup of the whole range of data (not just the date part): {data} \n")
 			if "-s" in sys.argv[1:]:
-				syslog("!!!! Write failed badly. Saved the whole read range of data (not just the date) as "+os.getcwd()+"/panasonic_error.log")
+				syslog(f"!!!! Write failed badly. Saved the whole read range of data (not just the date) as {os.getcwd()}/panasonic_error.log")
 				raise IOError
 			else:
-				raise IOError("Failed badly. Saved the whole read range of data (not just the date) as "+os.getcwd()+"/panasonic_error.log")
+				raise IOError(f"Failed badly. Saved the whole read range of data (not just the date) as {os.getcwd()}/panasonic_error.log")
 
 		finally:
 			print('\n .. done!')
@@ -170,7 +171,7 @@ def main():
 	find_tv()
 	try:
 		if "-s" in sys.argv[1:]: # short version of the script.
-			 write_zero()
+			write_zero()
 			if read_data(write_range) == "0"*len(write_range): # if the range is all zeroes
 				syslog("Successful Panasonic MLL reset.")
 			else:
@@ -181,13 +182,13 @@ def main():
 			print("Reading EEPROM data:")
 			data_read = read_data(read_range)
 			print(data_read)
-			print("The length of this range is: " + len(data_read))
-			if str.lower(input("Does the data read look like numbers? Type yes to continue and write zeroes over the MLL timer only: \n")) in ["yes", "y"]:
+			print(f"The length of this range is: {len(data_read)}")
+			if input("Does the data read look like numbers? Type yes to continue and write zeroes over the MLL timer only: \n").lower().strip() in ["yes", "y"]:
 				write_zero()
 				if read_data(write_range) == "0"*len(write_range)):
-					print("It worked! Here's the whole thing: " + read_data(read_range))
+					print(f"It worked! Here's the whole thing: {read_data(read_range)}")
 				else:
-					print("!!!! Something is wrong. This should have a lot of zeroes: " + read_data(read_range))
+					print(f"!!!! Something is wrong. This should have a lot of zeroes: {read_data(read_range)}")
 			else:
 				print("yes was not typed, terminating.")
 
