@@ -1,6 +1,6 @@
 # panasonicMLLreset
 
-# WARNING: Currently 100% theoretical, I haven't even tested it yet.
+Fully functional!
 
 Panasonic plasma TV MLL reset script for Raspberry Pi, instead of Arduino.
 
